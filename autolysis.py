@@ -30,8 +30,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
 #Assign value to API_KEY
-API_KEY="eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6IjIyZjMwMDA4NTMrMUBkcy5zdHVkeS5paXRtLmFjLmluIn0.cOYR9_XLf1eqK20hgUV-T3j-2d5icRnsHmukiUwkCcs"
-
+API_KEY=os.environ["AIPROXY_TOKEN"]
 #Extract filename from stdin
 filename=sys.argv[1]
 
