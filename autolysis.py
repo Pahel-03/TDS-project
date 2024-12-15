@@ -119,8 +119,9 @@ def give_feature_importances(data):
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": f'''U have been provided with feature ranking for a dataset analyse it 
-                     and its probable implcations in analysing that data.'''},
+                    {"role": "system", "content": f'''Analyse the given feature importances alongwith with PCA values and 
+                     their significance in data anlysis.
+                     Keep you reponse brief.'''},
                     {"role": "user", "content": ranked_features.to_json()}
                 ]
             }
