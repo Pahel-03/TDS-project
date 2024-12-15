@@ -42,21 +42,22 @@ def load_data(name):
 data=load_data(filename)
 
 # Descriptive Statistics of the data
-analysis_results = []
-charts = []
-summary = data.describe(include="all").to_markdown()
-categorical_columns_with_bool = data.select_dtypes(include=['object', 'category', 'bool']).columns
-numerical_columns = data.select_dtypes(include=['number']).columns
+def make_decriptive_stats(data):
+    summary=data.describe(include="all").to_markdown()
+    return(summary)
+
 
 # Drop rows with any null values
-df_dropped_rows = data.dropna()
-null_rows=len(df_dropped_rows)
-
-#data with only numerical columns
-num_data=data.drop(categorical_columns_with_bool,axis=1)
+def drop_null_rows(data):
+    df_dropped_rows = data.dropna()
+    return df_dropped_rows
 
 # Correlation map of numerical columns
-correlation_matrix_data=num_data.corr()
+def make_correl_map(data):
+    categorical_columns_with_bool = data.select_dtypes(include=['object', 'category', 'bool']).columns
+    num_data=data.drop(categorical_columns_with_bool,axis=1)
+    correlation_matrix_data=num_data.corr()
+    return correlation_matrix_data.to_json()
 
 #Call AI to generate a correlation heatmap
 def heatmap_code(statistics):
@@ -82,7 +83,7 @@ def heatmap_code(statistics):
         sresp+=(f"\n{content}\n")
     return sresp,datar
 
-#correaltion Analysis using ai
+#correaltion Analysis using ai-using vision capabilities
 def correl_analysis(correl_mat):
     response = requests.post(
             "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions",
@@ -90,10 +91,9 @@ def correl_analysis(correl_mat):
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": '''Provide a correlation analysis based on the following correlation matrix in an engaging story manner.'''},
+                    {"role": "system", "content": '''Provide a correlation analysis based on the following correlation matrix and how it can be used for analysing data'''},
                     {"role": "user", "content": correl_mat}
-                ],
-                # "functions":function_descriptions # specify the function call
+                ]
             }
         )
     datar=response.json()
@@ -103,87 +103,9 @@ def correl_analysis(correl_mat):
     for index, content in enumerate(choices_content):
         sresp+=(f"\n{content}\n")
     return sresp,datar
-
-#Identifying a target variable
-def identify_target(first_row):
-    response = requests.post(
-            "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {API_KEY}"},
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": '''Can you identify a probable target variable from this dataset say Yes followed by the target variable name or No.'''},
-                    {"role": "user", "content": first_row}
-                ],
-                # "functions":function_descriptions # specify the function call
-            }
-        )
-    datar=response.json()
-    choices_content = [choice['message']['content'] for choice in datar.get('choices', [])]
-    sresp=""
-    # Print the extracted content
-    for index, content in enumerate(choices_content):
-        sresp+=(f"\n{content}\n")
-    return sresp,datar
-
-def make_target_resp(exists,target_variable):
-    if exists == "Yes" and target_variable != "" and target_variable is not None:
-        final_target=f'The identified target variable from the dataset is {target_variable}'
-    else:
-        final_target='No target variable identified.'
-    return final_target
-
-def create_target_response(statement):
-    function_descriptions = [
-    {
-        "name": "make_target_resp",
-        "description": "Make a Final Target Response",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "exists": {
-                    "type": "string",
-                    "description": "Has a target been identified eg: Yes or No",
-                },
-                "target_variable": {
-                    "type": "string",
-                    "description": "name of target variable eg: average_values or null",
-                },
-            },
-            "required": ["exists","target_variable"],
-        },
-    }
-]
-
-    response = requests.post(
-            "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {API_KEY}"},
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": '''Identify the response and variable name'''},
-                    {"role": "user", "content": statement}
-                ],
-                "functions":function_descriptions ,
-                "function_call":"auto"# specify the function call
-            }
-        )
-    datar=response.json()
-    message = datar['choices'][0]['message']
-    target=""
-    if 'function_call' in message:
-        function_call=message['function_call']
-        arguments = json.loads(function_call['arguments'])  # Parse the arguments as JSON
-        resp_targ=make_target_resp(arguments['exists'],arguments['target_variable'])
-        target=arguments['target_variable']
-        # print(arguments)
-    else:
-        datar=None
-        resp_targ=make_target_resp("No","")
-    return resp_targ,datar,target
 
 #Generate Feature importance output
-def give_feature_importances(data,target):
+def give_feature_importances(data):
     categorical_columns = data.select_dtypes(include=['object']).columns
     for col in categorical_columns:
         le = LabelEncoder()
@@ -199,9 +121,8 @@ def give_feature_importances(data,target):
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": f'''U have been given the feature importance of a dataset with
-                     {target} as the protagonist describe the feature importances in a story format with emphasis on ranks.
-                     Make it sound like a middle parahgraph of the story.'''},
+                    {"role": "system", "content": f'''U have been provided with feature ranking for a dataset analyse it 
+                     and its probable implcations in analysing that data.'''},
                     {"role": "user", "content": ranked_features.to_json()}
                 ]
             }
@@ -224,8 +145,7 @@ def describe_data(first_row):
                 "model": "gpt-4o-mini",
                 "messages": [
                     {"role": "system", "content": '''There is first row of a dataset given.
-                        try describing what each clumn entails in an engaging engaging manner like an introduction to a story
-                      without talking much about the values of the first row.'''},
+                    Descibe what each column represents without any mention of the values given.'''},
                     {"role": "user", "content": first_row}
                 ]
             }
@@ -336,7 +256,7 @@ def basic_desc(statistics):
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Give me a summary of my data based on the provided statistics. Make your responses sound engaging and like a continuation of a story."},
+                    {"role": "system", "content": "Give me a summary of my data based on the provided descriptive statistics."},
                     {"role": "user", "content": statistics}
                 ]
             }
@@ -362,7 +282,7 @@ def further_analysis(statistics):
                      I also need you to save the plotted figures locally in current directory .Avoid making boxplots and heatmaps.
                      Do not plot the figures that will be difficult to interpret.
                      Properly label and colourize all plots.Do not use plt.show.
-                     Only plot upto 10 most important charts.
+                     Only plot 5 most important charts.
                      My python dataframe is called 'data' so cater the code for it.'''},
                     {"role": "user", "content": statistics}
                 ]
@@ -392,12 +312,6 @@ def extract_python_code(json_data):
 
 #Execute extracted code from gpt response
 def execute_extracted_code(code):
-    """
-    Execute Python code provided as a string.
-    
-    Args:
-        code (str): Python code to execute.
-    """
     try:
         exec(code)
     except Exception as e:
@@ -417,8 +331,7 @@ def image_process(image_url):
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": '''Analyse the image provided for data insights in an engaging way like parts of a story
-                     .Also talk about real life implications from our analysis in and engaging manner.'''},
+                    {"role": "system", "content": '''Analyse the image provided for data insights and talk about real life implications from our analysis.'''},
                     { "role":"user","content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}","detail": "low"}}]}
                     ]
                     }
@@ -439,16 +352,13 @@ redundant_response,token_5=is_it_redundant(first_row_of_data)
 is_it,lists,drop_list=create_red_explain(redundant_response)
 data=drop_cols(data,drop_list)
 data=data.dropna()
-this_is_target,token_6=identify_target(first_row_of_data)
-target_response,token_7,target_column=create_target_response(this_is_target)
-correl_response,token_8=correl_analysis(correlation_matrix_data.to_json())
-feature_imp,token_9=give_feature_importances(data,target_column)
-summary=data.describe(include="all").to_markdown()
-summary_response,token_1=basic_desc(summary)
-analyse_response,token_2=further_analysis(summary)
+correl_response,token_8=correl_analysis(make_correl_map(data))
+feature_imp,token_9=give_feature_importances(data)
+summary_response,token_1=basic_desc(make_decriptive_stats(data))
+analyse_response,token_2=further_analysis(make_decriptive_stats(data))
 code_1=extract_python_code(token_2)
 execute_extracted_code(code_1)
-heatmap_mat_code,token_3=heatmap_code(correlation_matrix_data.to_json())
+heatmap_mat_code,token_3=heatmap_code(make_correl_map(data))
 code_2=extract_python_code(token_3)
 execute_extracted_code(code_2)
 
@@ -477,12 +387,12 @@ for url in png_urls:
 with open("README.md", "w") as f:
     f.write("## An introduction to the data ##\n\n")
     f.write(str(first_row_response))
-    f.write("\n\n## Are there any unwanted columns in our data set? - Redundant columns in our dataset ##\n\n")
+    f.write("\n\n## Asking ai to indentify redundant columns in our dataset ##\n\n")
     f.write(str(is_it))
-    f.write("\n\n## Summary of the dataset - Understanding Descriptive Statistics ##\n")
+    f.write("\n\n##  Descriptive Statistics of the dataset ##\n")
+    f.write(str(make_decriptive_stats(data)))
+    f.write("\n\n## Understanding Descriptive Statistics ##\n")
     f.write(str(summary_response))
-    f.write("\n\n## Do we have a protagonist in out story? - Identifying the target variable ##\n\n")
-    f.write(str(target_response))
     f.write("\n\n## How important are our columns - Feature importance Analysis based on PCA ##\n\n")
     f.write(str(feature_imp))
     f.write("\n## How are our columns related to each other? - Correlation Analysis ##\n")
